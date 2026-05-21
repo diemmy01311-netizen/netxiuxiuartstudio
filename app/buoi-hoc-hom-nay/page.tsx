@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Download, Save, Edit3, ArrowLeft, Calendar, Users } from "lucide-react";
 import Link from "next/link";
 // Gọi trực tiếp từ thư mục lib/data.ts
-import { getHocVien, saveHocVien } from "../../lib/data"; 
+import { getHocVien, saveHocVien, subscribeHocVien } from "../../lib/data"; 
 
 const CAC_LOAI_LOP = ["Cơ bản", "Nhân vật", "Đa chất liệu", "Màu nước", "Acrylic"];
 const CAC_THU = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
@@ -22,6 +22,14 @@ export default function BuoiHocHomNayPage() {
       setNgayHomNay(CAC_THU[new Date().getDay()]);
     };
     fetchData();
+
+    const channel = subscribeHocVien(() => {
+      fetchData();
+    });
+
+    return () => {
+      void channel.unsubscribe();
+    };
   }, []);
 
   const updateHocVien = async (newData: any) => {

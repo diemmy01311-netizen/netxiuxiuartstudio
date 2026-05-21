@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { getHocThu, addHocThu, saveHocThu, DANH_SACH_LOP } from "../../lib/data";
+import { getHocThu, addHocThu, saveHocThu, subscribeHocThu, DANH_SACH_LOP } from "../../lib/data";
 
 export default function LichHocThuPage() {
   const [data, setData] = useState<any[]>([]);
@@ -17,6 +17,14 @@ export default function LichHocThuPage() {
       setData(await getHocThu());
     };
     fetchData();
+
+    const channel = subscribeHocThu(() => {
+      fetchData();
+    });
+
+    return () => {
+      void channel.unsubscribe();
+    };
   }, []);
 
   const handleDragStartSchedule = (index: number) => {

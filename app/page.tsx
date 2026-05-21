@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Plus, User, Calendar, GraduationCap } from "lucide-react";
-import { getHocVien, getHocThu, getSiteData, saveSiteData } from "../lib/data";
+import { getHocVien, getHocThu, subscribeHocVien, subscribeHocThu, getSiteData, saveSiteData } from "../lib/data";
 
 interface ClassItem {
   id: number;
@@ -56,6 +56,19 @@ export default function NetXiuXiuAdvanced() {
       setHydrated(true);
     };
     fetchData();
+
+    const hocVienChannel = subscribeHocVien(() => {
+      void getHocVien().then(setHocVien);
+    });
+
+    const hocThuChannel = subscribeHocThu(() => {
+      void getHocThu().then(setHocThu);
+    });
+
+    return () => {
+      void hocVienChannel.unsubscribe();
+      void hocThuChannel.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {

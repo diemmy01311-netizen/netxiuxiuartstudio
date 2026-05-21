@@ -13,16 +13,18 @@ export const saveSiteData = (data: any) => {
 };
 
 export interface HocVien {
-  id: number;
-  name: string;
-  age: number;
-  parent: string;
+  id: string;
+  full_name: string;
   phone: string;
-  lop: string;
+  class_name: string;
+  create_at: string;
+  age: number;
+  tuition_date: string;
+  parent_name: string;
+  social_url: string;
   caHoc: string[];
   progress: string;
   notes: string;
-  feeDate: string;
   sessionsAttended: number;
 }
 
@@ -77,3 +79,19 @@ export const addHocThu = async (newHocThu: any) => {
   }
   return data?.[0] || null;
 };
+
+export const subscribeHocVien = (onEvent: () => void) =>
+  supabase
+    .channel('realtime-hoc-vien')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'hoc_vien' }, () => {
+      onEvent();
+    })
+    .subscribe();
+
+export const subscribeHocThu = (onEvent: () => void) =>
+  supabase
+    .channel('realtime-hoc-thu')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'hoc_thu' }, () => {
+      onEvent();
+    })
+    .subscribe();

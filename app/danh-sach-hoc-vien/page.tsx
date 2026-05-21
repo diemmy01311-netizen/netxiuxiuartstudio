@@ -3,17 +3,20 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, User, Phone, GraduationCap, Plus, Edit3 } from "lucide-react";
-import { getHocVien, saveHocVien, addHocVien, DANH_SACH_LOP } from "../../lib/data";
+import { getHocVien, saveHocVien, addHocVien, subscribeHocVien, DANH_SACH_LOP } from "../../lib/data";
 
 const initialForm = {
-  name: "",
-  age: "",
-  parent: "",
+  id: "",
+  full_name: "",
   phone: "",
-  lop: "Cơ bản",
+  class_name: "Cơ bản",
+  create_at: "",
+  age: "",
+  tuition_date: "",
+  parent_name: "",
+  social_url: "",
   progress: "",
   notes: "",
-  feeDate: "",
   sessionsAttended: "0",
 };
 
@@ -22,51 +25,66 @@ export default function DanhSachHocVienPage() {
   const [formData, setFormData] = useState(initialForm);
   const [editMode, setEditMode] = useState(false);
   const [showForm, setShowForm] = useState(true);
-  const dragStudentIndex = useRef<number | null>(null);
+  const dragStudentId = useRef<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       setStudents(await getHocVien());
     };
     fetchData();
+
+    const channel = subscribeHocVien(() => {
+      fetchData();
+    });
+
+    return () => {
+      void channel.unsubscribe();
+    };
   }, []);
 
-  const handleDragStartStudent = (index: number) => {
+  const handleDragStartStudent = (id: string) => {
     if (!editMode) return;
-    dragStudentIndex.current = index;
+    dragStudentId.current = id;
   };
 
-  const handleDropStudent = async (index: number) => {
-    if (!editMode || dragStudentIndex.current === null) return;
-    const from = dragStudentIndex.current;
-    if (from === index) return;
+  const handleDropStudent = async (targetId: string) => {
+    if (!editMode || !dragStudentId.current) return;
+    const fromId = dragStudentId.current;
+    if (fromId === targetId) return;
+
+    const fromIndex = students.findIndex((s) => s.id === fromId);
+    const targetIndex = students.findIndex((s) => s.id === targetId);
+    if (fromIndex === -1 || targetIndex === -1) return;
 
     const next = [...students];
-    const [moved] = next.splice(from, 1);
-    next.splice(index, 0, moved);
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(targetIndex, 0, moved);
     setStudents(next);
     await saveHocVien(next);
-    dragStudentIndex.current = null;
+    dragStudentId.current = null;
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!formData.name.trim() || !formData.phone.trim()) {
-      return alert("Vui lòng điền tên và SĐT liên hệ.");
+    if (!formData.full_name.trim() || !formData.phone.trim()) {
+      return alert("Vui lòng điền họ tên và SĐT liên hệ.");
     }
 
+    const now = new Date().toISOString();
     const newStudent = {
-      id: Date.now(),
-      name: formData.name.trim(),
-      age: Number(formData.age) || 0,
-      parent: formData.parent.trim(),
+      id: formData.id?.trim() || String(Date.now()),
+      full_name: formData.full_name.trim(),
       phone: formData.phone.trim(),
-      lop: formData.lop,
+      class_name: formData.class_name,
+      create_at: formData.create_at || now,
+      age: Number(formData.age) || 0,
+      tuition_date: formData.tuition_date,
+      parent_name: formData.parent_name.trim(),
+      social_url: formData.social_url.trim(),
       caHoc: [],
       progress: formData.progress.trim(),
       notes: formData.notes.trim(),
-      feeDate: formData.feeDate,
       sessionsAttended: Number(formData.sessionsAttended) || 0,
     };
 
@@ -79,11 +97,11 @@ export default function DanhSachHocVienPage() {
   const handleExport = () => {
     const csvContent =
       "\uFEFF" +
-      "Tên,Tuổi,Phụ Huynh,SĐT,Lớp,Tiến trình,Ghi chú,Ngày đóng học phí,Số buổi đã học\n" +
+      "Mã học viên,Họ và tên,SĐT,Tên lớp,Ngày tạo,Tuổi,Ngày đóng học phí,Tên phụ huynh,Link MXH,Tiến trình,Ghi chú,Số buổi đã học\n" +
       students
         .map(
           (s) =>
-            `${s.name},${s.age},${s.parent},${s.phone},${s.lop},"${s.progress}","${s.notes}",${s.feeDate},${s.sessionsAttended}`
+            `${s.id},"${s.full_name || s.name}",${s.phone},"${s.class_name || s.lop}",${s.create_at || ""},${s.age || 0},${s.tuition_date || s.feeDate || ""},"${s.parent_name || s.parent}","${s.social_url || ""}","${s.progress}","${s.notes}",${s.sessionsAttended}`
         )
         .join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -92,6 +110,11 @@ export default function DanhSachHocVienPage() {
     link.download = "Danh_Sach_Hoc_Vien.csv";
     link.click();
   };
+
+  const studentsByClass = DANH_SACH_LOP.map((className) => ({
+    className,
+    items: students.filter((s) => (s.class_name || s.lop) === className),
+  }));
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-12">
@@ -120,9 +143,38 @@ export default function DanhSachHocVienPage() {
         {showForm && (
           <form onSubmit={handleSubmit} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Tên bé"
+              value={formData.full_name}
+              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+              placeholder="Họ và tên học viên"
+              className="border border-slate-200 rounded-2xl p-3 text-sm outline-none focus:border-indigo-400"
+            />
+            <input
+              value={formData.id}
+              onChange={(e) => setFormData({ ...formData, id: e.target.value })}
+              placeholder="Mã học viên (ID)"
+              className="border border-slate-200 rounded-2xl p-3 text-sm outline-none focus:border-indigo-400"
+            />
+            <input
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              placeholder="Số điện thoại"
+              className="border border-slate-200 rounded-2xl p-3 text-sm outline-none focus:border-indigo-400"
+            />
+            <select
+              value={formData.class_name}
+              onChange={(e) => setFormData({ ...formData, class_name: e.target.value })}
+              className="border border-slate-200 rounded-2xl p-3 text-sm outline-none focus:border-indigo-400"
+            >
+              {DANH_SACH_LOP.map((lop) => (
+                <option key={lop} value={lop}>
+                  {lop}
+                </option>
+              ))}
+            </select>
+            <input
+              value={formData.create_at}
+              onChange={(e) => setFormData({ ...formData, create_at: e.target.value })}
+              type="datetime-local"
               className="border border-slate-200 rounded-2xl p-3 text-sm outline-none focus:border-indigo-400"
             />
             <input
@@ -133,32 +185,22 @@ export default function DanhSachHocVienPage() {
               className="border border-slate-200 rounded-2xl p-3 text-sm outline-none focus:border-indigo-400"
             />
             <input
-              value={formData.parent}
-              onChange={(e) => setFormData({ ...formData, parent: e.target.value })}
-              placeholder="Phụ huynh"
-              className="border border-slate-200 rounded-2xl p-3 text-sm outline-none focus:border-indigo-400"
-            />
-            <input
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="Số điện thoại"
-              className="border border-slate-200 rounded-2xl p-3 text-sm outline-none focus:border-indigo-400"
-            />
-            <select
-              value={formData.lop}
-              onChange={(e) => setFormData({ ...formData, lop: e.target.value })}
-              className="border border-slate-200 rounded-2xl p-3 text-sm outline-none focus:border-indigo-400"
-            >
-              {DANH_SACH_LOP.map((lop) => (
-                <option key={lop} value={lop}>
-                  {lop}
-                </option>
-              ))}
-            </select>
-            <input
-              value={formData.feeDate}
-              onChange={(e) => setFormData({ ...formData, feeDate: e.target.value })}
+              value={formData.tuition_date}
+              onChange={(e) => setFormData({ ...formData, tuition_date: e.target.value })}
               type="date"
+              placeholder="Ngày đóng học phí"
+              className="border border-slate-200 rounded-2xl p-3 text-sm outline-none focus:border-indigo-400"
+            />
+            <input
+              value={formData.parent_name}
+              onChange={(e) => setFormData({ ...formData, parent_name: e.target.value })}
+              placeholder="Tên phụ huynh"
+              className="border border-slate-200 rounded-2xl p-3 text-sm outline-none focus:border-indigo-400"
+            />
+            <input
+              value={formData.social_url}
+              onChange={(e) => setFormData({ ...formData, social_url: e.target.value })}
+              placeholder="Link mạng xã hội"
               className="border border-slate-200 rounded-2xl p-3 text-sm outline-none focus:border-indigo-400"
             />
             <input
@@ -186,38 +228,54 @@ export default function DanhSachHocVienPage() {
           </form>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {students.map((s, i) => (
-            <div
-              key={s.id ?? i}
-              draggable={editMode}
-              onDragStart={() => handleDragStartStudent(i)}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={() => handleDropStudent(i)}
-              className={`bg-white p-6 rounded-3xl border border-slate-100 shadow-sm transition ${editMode ? "cursor-grab border-blue-200/80" : "hover:shadow-md"}`}
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-                  <User size={24} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-800">{s.name}</h2>
-                  <span className="text-xs text-slate-500">{s.age} tuổi • {s.lop}</span>
-                </div>
+        <div className="space-y-8">
+          {studentsByClass.map(({ className, items }) => (
+            <section key={className} className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+              <div className="mb-6 flex items-center justify-between gap-4">
+                <h2 className="text-xl font-bold text-slate-900">Lớp {className}</h2>
+                <span className="text-sm text-slate-500">{items.length} học viên</span>
               </div>
-              <div className="space-y-3 text-sm text-slate-600">
-                <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500">PH: <span className="font-semibold text-slate-900">{s.parent}</span></span>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500">SĐT: <span className="font-semibold text-slate-900">{s.phone}</span></span>
+              {items.length === 0 ? (
+                <p className="text-sm text-slate-500">Chưa có học viên trong lớp này.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {items.map((s) => (
+                    <div
+                      key={s.id}
+                      draggable={editMode}
+                      onDragStart={() => handleDragStartStudent(s.id)}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={() => handleDropStudent(s.id)}
+                      className={`bg-slate-50 p-6 rounded-3xl border border-slate-100 shadow-sm transition ${editMode ? "cursor-grab border-blue-200/80" : "hover:shadow-md"}`}
+                    >
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                          <User size={24} />
+                        </div>
+                        <div>
+                          <h2 className="text-lg font-bold text-slate-800">{s.full_name || s.name}</h2>
+                          <span className="text-xs text-slate-500">ID: {s.id}</span>
+                        </div>
+                      </div>
+                      <div className="space-y-3 text-sm text-slate-600">
+                        <div className="grid gap-1 text-xs text-slate-500">
+                          <p><span className="font-semibold text-slate-800">Lớp:</span> {s.class_name || s.lop}</p>
+                          <p><span className="font-semibold text-slate-800">Ngày tạo:</span> {s.create_at || "Chưa có"}</p>
+                          <p><span className="font-semibold text-slate-800">Tuổi:</span> {s.age ?? 0}</p>
+                          <p><span className="font-semibold text-slate-800">Ngày đóng học phí:</span> {s.tuition_date || s.feeDate || "Chưa có"}</p>
+                          <p><span className="font-semibold text-slate-800">Phụ huynh:</span> {s.parent_name || s.parent || "Chưa có"}</p>
+                          <p><span className="font-semibold text-slate-800">SĐT:</span> {s.phone || "Chưa có"}</p>
+                          <p><span className="font-semibold text-slate-800">MXH:</span> {s.social_url ? <a href={s.social_url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">{s.social_url}</a> : "Chưa có"}</p>
+                          <p><span className="font-semibold text-slate-800">Tiến trình:</span> {s.progress || "Chưa cập nhật"}</p>
+                          <p><span className="font-semibold text-slate-800">Số buổi đã học:</span> {s.sessionsAttended ?? 0}</p>
+                          <p><span className="font-semibold text-slate-800">Ghi chú:</span> {s.notes || "Không có"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="grid gap-1 text-xs text-slate-500">
-                  <p><span className="font-semibold text-slate-800">Tiến trình:</span> {s.progress || "Chưa cập nhật"}</p>
-                  <p><span className="font-semibold text-slate-800">Ngày đóng học phí:</span> {s.feeDate || "Chưa có"}</p>
-                  <p><span className="font-semibold text-slate-800">Số buổi đã học:</span> {s.sessionsAttended ?? 0}</p>
-                  <p><span className="font-semibold text-slate-800">Ghi chú:</span> {s.notes || "Không có"}</p>
-                </div>
-              </div>
-            </div>
+              )}
+            </section>
           ))}
         </div>
       </div>
