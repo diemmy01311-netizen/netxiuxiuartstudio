@@ -45,14 +45,17 @@ export default function NetXiuXiuAdvanced() {
   const CAC_THU = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
 
   useEffect(() => {
-    const saved = getSiteData();
-    if (saved) {
-      setSiteData(saved);
-    }
+    const fetchData = async () => {
+      const saved = getSiteData();
+      if (saved) {
+        setSiteData(saved);
+      }
 
-    setHocVien(getHocVien());
-    setHocThu(getHocThu());
-    setHydrated(true);
+      setHocVien(await getHocVien());
+      setHocThu(await getHocThu());
+      setHydrated(true);
+    };
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -144,6 +147,9 @@ export default function NetXiuXiuAdvanced() {
           </Link>
           <Link href="/lich-hoc" className="hover:text-orange-600 transition-colors">
             Lịch học thử
+          </Link>
+          <Link href="/login" className="hover:text-orange-600 transition-colors">
+            Đăng nhập
           </Link>
         </nav>
       </header>

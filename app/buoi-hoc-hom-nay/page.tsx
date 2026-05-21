@@ -17,13 +17,16 @@ export default function BuoiHocHomNayPage() {
   const dragItemIndex = useRef<number | null>(null);
 
   useEffect(() => {
-    setHocVien(getHocVien());
-    setNgayHomNay(CAC_THU[new Date().getDay()]);
+    const fetchData = async () => {
+      setHocVien(await getHocVien());
+      setNgayHomNay(CAC_THU[new Date().getDay()]);
+    };
+    fetchData();
   }, []);
 
-  const updateHocVien = (newData: any) => {
+  const updateHocVien = async (newData: any) => {
     setHocVien(newData);
-    saveHocVien(newData);
+    await saveHocVien(newData);
   };
 
   const handleDragStart = (index: number) => {
@@ -31,7 +34,7 @@ export default function BuoiHocHomNayPage() {
     dragItemIndex.current = index;
   };
 
-  const handleDrop = (index: number) => {
+  const handleDrop = async (index: number) => {
     if (!isEditing || dragItemIndex.current === null) return;
     const sourceIndex = dragItemIndex.current;
     if (sourceIndex === index) return;
@@ -45,7 +48,7 @@ export default function BuoiHocHomNayPage() {
     const [moved] = nextHocVien.splice(sourcePos, 1);
     const targetPos = nextHocVien.findIndex((h: any) => h.id === targetId);
     nextHocVien.splice(targetPos, 0, moved);
-    updateHocVien(nextHocVien);
+    await updateHocVien(nextHocVien);
     dragItemIndex.current = null;
   };
 
@@ -101,13 +104,15 @@ export default function BuoiHocHomNayPage() {
               onDragStart={() => handleDragStart(index)}
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => handleDrop(index)}
-              className={`bg-white p-6 rounded-[35px] border border-stone-100 flex justify-between items-center transition ${isEditing ? "cursor-grab border-orange-200/80" : ""}`}
+              className={`bg-white p-6 rounded-[35px] border border-stone-100 flex flex-col gap-4 transition ${isEditing ? "cursor-grab border-orange-200/80" : ""}`}
             >
               <div>
                 <h3 className="font-black text-xl">{s.name}</h3>
                 <p className="text-xs font-bold text-stone-400">PH: {s.parent} • {s.phone}</p>
+                <p className="text-xs text-stone-400">Lớp: {s.lop} • Buổi đã học: {s.sessionsAttended ?? 0}</p>
+                <p className="text-xs text-stone-400">Tiến trình: {s.progress || "Chưa cập nhật"}</p>
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap">
                 {CAC_THU.map(thu => (
                   <button key={thu} disabled={!isEditing} onClick={() => toggleSchedule(s.id, thu)} className={`w-8 h-8 rounded-lg text-[9px] font-black ${s.caHoc.includes(thu) ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-300"}`}>
                     {thu === "Chủ Nhật" ? "CN" : thu.replace("Thứ ", "")}

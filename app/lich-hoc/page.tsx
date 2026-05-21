@@ -13,7 +13,10 @@ export default function LichHocThuPage() {
   const [formData, setFormData] = useState({ name: "", age: "", parent: "", phone: "", lop: "Cơ bản", date: "", time: "" });
 
   useEffect(() => {
-    setData(getHocThu());
+    const fetchData = async () => {
+      setData(await getHocThu());
+    };
+    fetchData();
   }, []);
 
   const handleDragStartSchedule = (index: number) => {
@@ -21,7 +24,7 @@ export default function LichHocThuPage() {
     dragScheduleIndex.current = index;
   };
 
-  const handleDropSchedule = (index: number) => {
+  const handleDropSchedule = async (index: number) => {
     if (!editMode || dragScheduleIndex.current === null) return;
     const from = dragScheduleIndex.current;
     if (from === index) return;
@@ -30,14 +33,16 @@ export default function LichHocThuPage() {
     const [moved] = next.splice(from, 1);
     next.splice(index, 0, moved);
     setData(next);
-    saveHocThu(next);
+    await saveHocThu(next);
     dragScheduleIndex.current = null;
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!formData.name || !formData.phone) return alert("Vui lòng nhập tên bé và SĐT");
-    const updatedData = addHocThu(formData);
-    setData(updatedData);
+    const result = await addHocThu(formData);
+    if (result) {
+      setData(await getHocThu());
+    }
     setShowForm(false);
     setFormData({ name: "", age: "", parent: "", phone: "", lop: "Cơ bản", date: "", time: "" });
   };
