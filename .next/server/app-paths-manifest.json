@@ -1,0 +1,5 @@
+{
+  "/buoi-hoc-hom-nay/page": "app/buoi-hoc-hom-nay/page.js",
+  "/danh-sach-hoc-vien/page": "app/danh-sach-hoc-vien/page.js",
+  "/page": "app/page.js"
+}
