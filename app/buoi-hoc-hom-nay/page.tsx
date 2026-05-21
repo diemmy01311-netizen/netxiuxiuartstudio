@@ -60,22 +60,33 @@ export default function BuoiHocHomNayPage() {
     dragItemIndex.current = null;
   };
 
-  const toggleSchedule = (id: number, day: string) => {
+  const toggleSchedule = (id: string, day: string) => {
     const newData = hocVien.map((h: any) => {
       if (h.id !== id) return h;
-      const newCaHoc = h.caHoc.includes(day) 
-        ? h.caHoc.filter((d: string) => d !== day) 
-        : [...h.caHoc, day];
+      const caHoc = Array.isArray(h.caHoc) ? h.caHoc : [];
+      const newCaHoc = caHoc.includes(day)
+        ? caHoc.filter((d: string) => d !== day)
+        : [...caHoc, day];
       return { ...h, caHoc: newCaHoc };
     });
     updateHocVien(newData);
   };
 
-  const danhSachLoc = hocVien.filter((h: any) => h.caHoc.includes(ngayHomNay) && h.lop === activeLop);
+  const danhSachLoc = hocVien.filter((h: any) =>
+    Array.isArray(h.caHoc) &&
+    h.caHoc.includes(ngayHomNay) &&
+    (h.class_name || h.lop) === activeLop
+  );
 
   const handleExport = () => {
-    const csvHeader = "\uFEFF" + "Tên Bé,Phụ Huynh,SĐT,Lớp,Lịch Học\n";
-    const csvRows = danhSachLoc.map(h => `${h.name},${h.parent},${h.phone},${h.lop},"${h.caHoc.join(", ")}"`).join("\n");
+    const csvHeader = "\uFEFF" + "Tên Bé,Phụ Huynh,SĐT,Lớp,Ngày học,Khung giờ,Tiến trình,\n";
+    const csvRows = danhSachLoc.map(h => {
+      const name = h.full_name || h.name || "";
+      const parent = h.parent_name || h.parent || "";
+      const className = h.class_name || h.lop || "";
+      const scheduleDays = Array.isArray(h.caHoc) ? h.caHoc.join(", ") : "";
+      return `${name},${parent},${h.phone || ""},${className},"${scheduleDays}","${h.schedule_time || ""}","${h.progress || ""}"`;
+    }).join("\n");
     const blob = new Blob([csvHeader + csvRows], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -105,30 +116,37 @@ export default function BuoiHocHomNayPage() {
           ))}
         </div>
         <div className="space-y-4">
-          {danhSachLoc.map((s: any, index: number) => (
-            <div
-              key={s.id}
-              draggable={isEditing}
-              onDragStart={() => handleDragStart(index)}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={() => handleDrop(index)}
-              className={`bg-white p-6 rounded-[35px] border border-stone-100 flex flex-col gap-4 transition ${isEditing ? "cursor-grab border-orange-200/80" : ""}`}
-            >
-              <div>
-                <h3 className="font-black text-xl">{s.name}</h3>
-                <p className="text-xs font-bold text-stone-400">PH: {s.parent} • {s.phone}</p>
-                <p className="text-xs text-stone-400">Lớp: {s.lop} • Buổi đã học: {s.sessionsAttended ?? 0}</p>
-                <p className="text-xs text-stone-400">Tiến trình: {s.progress || "Chưa cập nhật"}</p>
+          {danhSachLoc.map((s: any, index: number) => {
+            const name = s.full_name || s.name || "Chưa đặt tên";
+            const parent = s.parent_name || s.parent || "Chưa cập nhật";
+            const className = s.class_name || s.lop || "Chưa có lớp";
+            const caHoc = Array.isArray(s.caHoc) ? s.caHoc : [];
+            return (
+              <div
+                key={s.id}
+                draggable={isEditing}
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => handleDrop(index)}
+                className={`bg-white p-6 rounded-[35px] border border-stone-100 flex flex-col gap-4 transition ${isEditing ? "cursor-grab border-orange-200/80" : ""}`}
+              >
+                <div>
+                  <h3 className="font-black text-xl">{name}</h3>
+                  <p className="text-xs font-bold text-stone-400">PH: {parent} • {s.phone || "Chưa có"}</p>
+                  <p className="text-xs text-stone-400">Lớp: {className} • Buổi đã học: {s.sessionsAttended ?? 0}</p>
+                  <p className="text-xs text-stone-400">Tiến trình: {s.progress || "Chưa cập nhật"}</p>
+                  <p className="text-xs text-stone-400">Khung giờ: {s.schedule_time || "Chưa đặt"}</p>
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  {CAC_THU.map(thu => (
+                    <button key={thu} disabled={!isEditing} onClick={() => toggleSchedule(s.id, thu)} className={`w-8 h-8 rounded-lg text-[9px] font-black ${caHoc.includes(thu) ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-300"}`}>
+                      {thu === "Chủ Nhật" ? "CN" : thu.replace("Thứ ", "")}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex gap-1 flex-wrap">
-                {CAC_THU.map(thu => (
-                  <button key={thu} disabled={!isEditing} onClick={() => toggleSchedule(s.id, thu)} className={`w-8 h-8 rounded-lg text-[9px] font-black ${s.caHoc.includes(thu) ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-300"}`}>
-                    {thu === "Chủ Nhật" ? "CN" : thu.replace("Thứ ", "")}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

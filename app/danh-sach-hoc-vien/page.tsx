@@ -15,16 +15,21 @@ const initialForm = {
   tuition_date: "",
   parent_name: "",
   social_url: "",
+  caHoc: [] as string[],
+  schedule_time: "",
   progress: "",
   notes: "",
   sessionsAttended: "0",
 };
+
+const CA_HOC_OPTIONS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
 
 export default function DanhSachHocVienPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [formData, setFormData] = useState(initialForm);
   const [editMode, setEditMode] = useState(false);
   const [showForm, setShowForm] = useState(true);
+  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const dragStudentId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -45,6 +50,27 @@ export default function DanhSachHocVienPage() {
   const handleDragStartStudent = (id: string) => {
     if (!editMode) return;
     dragStudentId.current = id;
+  };
+
+  const handleEditStudent = (student: any) => {
+    setEditingStudentId(student.id);
+    setFormData({
+      id: student.id,
+      full_name: student.full_name || student.name || "",
+      phone: student.phone || "",
+      class_name: student.class_name || student.lop || "Cơ bản",
+      create_at: student.create_at || "",
+      age: student.age ? String(student.age) : "",
+      tuition_date: student.tuition_date || student.feeDate || "",
+      parent_name: student.parent_name || student.parent || "",
+      social_url: student.social_url || "",
+      caHoc: student.caHoc || [],
+      schedule_time: student.schedule_time || "",
+      progress: student.progress || "",
+      notes: student.notes || "",
+      sessionsAttended: student.sessionsAttended ? String(student.sessionsAttended) : "0",
+    });
+    setShowForm(true);
   };
 
   const handleDropStudent = async (targetId: string) => {
@@ -72,8 +98,8 @@ export default function DanhSachHocVienPage() {
     }
 
     const now = new Date().toISOString();
-    const newStudent = {
-      id: formData.id?.trim() || String(Date.now()),
+    const studentPayload = {
+      id: editingStudentId || formData.id?.trim() || String(Date.now()),
       full_name: formData.full_name.trim(),
       phone: formData.phone.trim(),
       class_name: formData.class_name,
@@ -82,26 +108,37 @@ export default function DanhSachHocVienPage() {
       tuition_date: formData.tuition_date,
       parent_name: formData.parent_name.trim(),
       social_url: formData.social_url.trim(),
-      caHoc: [],
+      caHoc: formData.caHoc,
+      schedule_time: formData.schedule_time.trim(),
       progress: formData.progress.trim(),
       notes: formData.notes.trim(),
       sessionsAttended: Number(formData.sessionsAttended) || 0,
     };
 
-    const added = await addHocVien(newStudent);
-    const next = [...students, added || newStudent];
-    setStudents(next);
+    if (editingStudentId) {
+      const updated = students.map((student) =>
+        student.id === editingStudentId ? { ...student, ...studentPayload } : student
+      );
+      await saveHocVien(updated);
+      setStudents(updated);
+      setEditingStudentId(null);
+    } else {
+      const added = await addHocVien(studentPayload);
+      const next = [...students, added || studentPayload];
+      setStudents(next);
+    }
+
     setFormData(initialForm);
   };
 
   const handleExport = () => {
     const csvContent =
       "\uFEFF" +
-      "Mã học viên,Họ và tên,SĐT,Tên lớp,Ngày tạo,Tuổi,Ngày đóng học phí,Tên phụ huynh,Link MXH,Tiến trình,Ghi chú,Số buổi đã học\n" +
+      "Mã học viên,Họ và tên,SĐT,Tên lớp,Ngày tạo,Tuổi,Ngày đóng học phí,Tên phụ huynh,Link MXH,Ngày học,Khung giờ,Tiến trình,Ghi chú,Số buổi đã học\n" +
       students
         .map(
           (s) =>
-            `${s.id},"${s.full_name || s.name}",${s.phone},"${s.class_name || s.lop}",${s.create_at || ""},${s.age || 0},${s.tuition_date || s.feeDate || ""},"${s.parent_name || s.parent}","${s.social_url || ""}","${s.progress}","${s.notes}",${s.sessionsAttended}`
+            `${s.id},"${s.full_name || s.name}",${s.phone},"${s.class_name || s.lop}",${s.create_at || ""},${s.age || 0},${s.tuition_date || s.feeDate || ""},"${s.parent_name || s.parent}","${s.social_url || ""}","${(s.caHoc || []).join(", ")}","${s.schedule_time || ""}","${s.progress}","${s.notes}",${s.sessionsAttended}`
         )
         .join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -197,6 +234,30 @@ export default function DanhSachHocVienPage() {
               placeholder="Tên phụ huynh"
               className="border border-slate-200 rounded-2xl p-3 text-sm outline-none focus:border-indigo-400"
             />
+            <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
+              {CA_HOC_OPTIONS.map((day) => (
+                <label key={day} className="flex items-center gap-2 text-xs text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={formData.caHoc.includes(day)}
+                    onChange={() => {
+                      const nextDays = formData.caHoc.includes(day)
+                        ? formData.caHoc.filter((d) => d !== day)
+                        : [...formData.caHoc, day];
+                      setFormData({ ...formData, caHoc: nextDays });
+                    }}
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  {day}
+                </label>
+              ))}
+            </div>
+            <input
+              value={formData.schedule_time}
+              onChange={(e) => setFormData({ ...formData, schedule_time: e.target.value })}
+              placeholder="Khung giờ học"
+              className="border border-slate-200 rounded-2xl p-3 text-sm outline-none focus:border-indigo-400"
+            />
             <input
               value={formData.social_url}
               onChange={(e) => setFormData({ ...formData, social_url: e.target.value })}
@@ -222,9 +283,23 @@ export default function DanhSachHocVienPage() {
               placeholder="Ghi chú"
               className="col-span-1 md:col-span-2 border border-slate-200 rounded-2xl p-3 text-sm outline-none focus:border-indigo-400 h-28 resize-none"
             />
-            <button type="submit" className="col-span-1 md:col-span-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl py-3 text-sm font-bold transition">
-              Lưu học viên
-            </button>
+            <div className="col-span-1 md:col-span-2 flex flex-col sm:flex-row gap-3">
+              <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl py-3 text-sm font-bold transition">
+                {editingStudentId ? "Cập nhật học viên" : "Lưu học viên"}
+              </button>
+              {editingStudentId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingStudentId(null);
+                    setFormData(initialForm);
+                  }}
+                  className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-2xl py-3 text-sm font-bold transition"
+                >
+                  Hủy chỉnh sửa
+                </button>
+              )}
+            </div>
           </form>
         )}
 
@@ -248,14 +323,23 @@ export default function DanhSachHocVienPage() {
                       onDrop={() => handleDropStudent(s.id)}
                       className={`bg-slate-50 p-6 rounded-3xl border border-slate-100 shadow-sm transition ${editMode ? "cursor-grab border-blue-200/80" : "hover:shadow-md"}`}
                     >
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-                          <User size={24} />
+                      <div className="flex items-start justify-between gap-3 mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                            <User size={24} />
+                          </div>
+                          <div>
+                            <h2 className="text-lg font-bold text-slate-800">{s.full_name || s.name}</h2>
+                            <span className="text-xs text-slate-500">ID: {s.id}</span>
+                          </div>
                         </div>
-                        <div>
-                          <h2 className="text-lg font-bold text-slate-800">{s.full_name || s.name}</h2>
-                          <span className="text-xs text-slate-500">ID: {s.id}</span>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleEditStudent(s)}
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-2xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-100 transition"
+                        >
+                          <Edit3 size={14} /> Chỉnh sửa
+                        </button>
                       </div>
                       <div className="space-y-3 text-sm text-slate-600">
                         <div className="grid gap-1 text-xs text-slate-500">
@@ -265,6 +349,8 @@ export default function DanhSachHocVienPage() {
                           <p><span className="font-semibold text-slate-800">Ngày đóng học phí:</span> {s.tuition_date || s.feeDate || "Chưa có"}</p>
                           <p><span className="font-semibold text-slate-800">Phụ huynh:</span> {s.parent_name || s.parent || "Chưa có"}</p>
                           <p><span className="font-semibold text-slate-800">SĐT:</span> {s.phone || "Chưa có"}</p>
+                          <p><span className="font-semibold text-slate-800">Ngày học:</span> {(s.caHoc || []).length ? (s.caHoc || []).join(", ") : "Chưa có"}</p>
+                          <p><span className="font-semibold text-slate-800">Khung giờ:</span> {s.schedule_time || "Chưa có"}</p>
                           <p><span className="font-semibold text-slate-800">MXH:</span> {s.social_url ? <a href={s.social_url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">{s.social_url}</a> : "Chưa có"}</p>
                           <p><span className="font-semibold text-slate-800">Tiến trình:</span> {s.progress || "Chưa cập nhật"}</p>
                           <p><span className="font-semibold text-slate-800">Số buổi đã học:</span> {s.sessionsAttended ?? 0}</p>

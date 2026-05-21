@@ -23,6 +23,7 @@ export interface HocVien {
   parent_name: string;
   social_url: string;
   caHoc: string[];
+  schedule_time: string;
   progress: string;
   notes: string;
   sessionsAttended: number;
